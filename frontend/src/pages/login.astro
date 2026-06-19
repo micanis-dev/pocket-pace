@@ -1,0 +1,108 @@
+---
+import { config, hasAuth0Config } from '../lib/config';
+import { getSession } from '../lib/auth';
+
+const session = getSession(Astro.cookies);
+
+const authConfigured = hasAuth0Config();
+---
+
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pocket-Pace | ログイン</title>
+    <link rel="stylesheet" href="/styles/global.css" />
+  </head>
+  <body class="login-page">
+    <section class="login-card">
+      <div class="login-hero">
+        <div class="stack">
+          <span class="eyebrow">Pocket-Pace</span>
+          <h1>今の周期で、あといくら使えるかを見失わない。</h1>
+          <p class="page-description">
+            収入・支出・カード請求・繰り越しを周期単位で見せる、使用可能額ベースの家計管理アプリです。
+          </p>
+        </div>
+        <div class="hero-stats">
+          <div class="summary-card">
+            <div class="label">予算周期</div>
+            <div class="value">1か月</div>
+            <div class="note">月初 / 給与日 / カスタムに対応</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">反映対象</div>
+            <div class="value">即時</div>
+            <div class="note">カード払いも利用日基準で控除</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">ログイン</div>
+            <div class="value">Auth0</div>
+            <div class="note">開発用ログインも用意</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="login-form stack">
+        <div class="page-card">
+          <h2 class="section-title">ログイン</h2>
+          <p class="muted">
+            本番は Auth0、ローカルでは開発用ログインを使えます。
+          </p>
+          {session ? (
+            <div class="badge success">
+              既にセッションがあります。ホームへ進むか、ログアウトして再ログインしてください。
+            </div>
+          ) : null}
+          <div class="stack">
+            {authConfigured ? (
+              <a class="primary-button" href="/auth/login">Auth0でログイン</a>
+            ) : (
+              <div class="badge warning">Auth0環境変数が未設定です。開発用ログインのみ有効です。</div>
+            )}
+
+            {config.allowDemoLogin ? (
+              <form method="post" action="/auth/demo" class="stack">
+                <div class="field-grid">
+                  <label class="field">
+                    <span>表示名</span>
+                    <input name="displayName" value="Demo User" required />
+                  </label>
+                  <label class="field">
+                    <span>メールアドレス</span>
+                    <input name="email" type="email" value="demo@example.com" required />
+                  </label>
+                </div>
+                <button type="submit" class="secondary-button">開発用ログイン</button>
+              </form>
+            ) : (
+              <div class="badge">開発用ログインは無効です。</div>
+            )}
+
+            <div class="badge">
+              <strong>補足:</strong>&nbsp;開発用ログインは API の `DEV_AUTH_BYPASS=true` を前提にしています。
+            </div>
+          </div>
+        </div>
+
+        <div class="page-card">
+          <h2 class="section-title">セットアップ情報</h2>
+          <div class="stack">
+            <div>
+              <div class="label">API</div>
+              <strong>{import.meta.env.PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8787'}</strong>
+            </div>
+            <div>
+              <div class="label">アプリ</div>
+              <strong>{import.meta.env.PUBLIC_APP_BASE_URL ?? 'http://127.0.0.1:4321'}</strong>
+            </div>
+            <div>
+              <div class="label">Auth0</div>
+              <strong>{authConfigured ? '設定済み' : '未設定'}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </body>
+</html>

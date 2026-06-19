@@ -1,0 +1,81 @@
+---
+import { config } from '../lib/config';
+import { getSession } from '../lib/auth';
+
+const { title, description = '', active = 'dashboard' } = Astro.props as {
+  title: string;
+  description?: string;
+  active?: string;
+};
+
+const session = getSession(Astro.cookies);
+const navItems = [
+  { href: '/', label: 'ホーム', key: 'dashboard' },
+  { href: '/expenses', label: '支出', key: 'expenses' },
+  { href: '/incomes', label: '収入', key: 'incomes' },
+  { href: '/accounts', label: '口座', key: 'accounts' },
+  { href: '/cards', label: 'カード', key: 'cards' },
+  { href: '/cycles', label: '周期', key: 'cycles' },
+  { href: '/categories', label: 'カテゴリ', key: 'categories' },
+  { href: '/statements', label: '請求', key: 'statements' },
+];
+---
+
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>{title} | Pocket-Pace</title>
+    <meta name="description" content={description || 'Pocket-Pace dashboard'} />
+    <link rel="stylesheet" href="/styles/global.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a href="/" class="brand">
+          <span class="brand-mark">P</span>
+          <span>
+            <strong>Pocket-Pace</strong>
+            <small>使用可能額の管理</small>
+          </span>
+        </a>
+
+        <nav class="nav">
+          {navItems.map((item) => (
+            <a href={item.href} class:list={{ active: item.key === active }}>
+              {item.label}
+            </a>
+          ))}
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="session-card">
+            <span class="session-label">ログイン中</span>
+            <strong>{session?.displayName ?? '未ログイン'}</strong>
+            <small>{session?.email ?? 'ログインしてください'}</small>
+          </div>
+          <a class="secondary-button" href="/login">
+            ログイン画面
+          </a>
+          <form method="post" action="/auth/logout">
+            <button type="submit" class="secondary-button">ログアウト</button>
+          </form>
+        </div>
+      </aside>
+
+      <main class="content">
+        <header class="page-header">
+          <div>
+            <p class="eyebrow">Pocket-Pace / {config.apiBaseUrl}</p>
+            <h1>{title}</h1>
+            {description ? <p class="page-description">{description}</p> : null}
+          </div>
+        </header>
+
+        <slot />
+      </main>
+    </div>
+  </body>
+</html>

@@ -4,4 +4,7 @@ api/node_modules/
 api/.wrangler/
 api/.dev.vars
 api/coverage/
+frontend/node_modules/
+frontend/dist/
+frontend/.astro/
 *.log

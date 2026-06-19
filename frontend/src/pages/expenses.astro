@@ -1,0 +1,138 @@
+---
+import AppShell from '../components/AppShell.astro';
+import PageCard from '../components/PageCard.astro';
+import StatusBadge from '../components/StatusBadge.astro';
+import { getSession } from '../lib/auth';
+import { loadAccounts, loadCards, loadCategories, loadDashboard, loadExpenses } from '../lib/api';
+import { formatDate, formatYen } from '../lib/format';
+
+const session = getSession(Astro.cookies);
+if (!session) return Astro.redirect('/login');
+
+const [dashboard, expenses, accounts, cards, categories] = await Promise.all([
+  loadDashboard(session),
+  loadExpenses(session),
+  loadAccounts(session),
+  loadCards(session),
+  loadCategories(session),
+]);
+
+const today = new Date().toISOString().slice(0, 10);
+const error = Astro.url.searchParams.get('error');
+
+const accountMap = new Map(accounts.map((account) => [account.id, account.name]));
+const cardMap = new Map(cards.map((card) => [card.id, card.name]));
+const categoryMap = new Map(categories.map((category) => [category.id, category.name]));
+---
+
+<AppShell title="支出一覧" description="日々の支出を確認し、クイック入力する。" active="expenses">
+  {error ? <div class="badge danger">保存に失敗しました: {error}</div> : null}
+
+  <PageCard title="支出を追加">
+    <form method="post" action="/api/expenses/create" class="stack">
+      <input type="hidden" name="cycleId" value={dashboard.currentCycle.id} />
+      <div class="field-grid">
+        <label class="field">
+          <span>支出名</span>
+          <input name="name" placeholder="コンビニ" required />
+        </label>
+        <label class="field">
+          <span>金額</span>
+          <input name="amount" type="number" min="1" value="1000" required />
+        </label>
+        <label class="field">
+          <span>日付</span>
+          <input name="expenseDate" type="date" value={today} required />
+        </label>
+        <label class="field">
+          <span>カテゴリ</span>
+          <select name="categoryId" required>
+            <option value="">選択してください</option>
+            {categories.map((category) => (
+              <option value={category.id}>{category.name}</option>
+            ))}
+          </select>
+        </label>
+        <label class="field">
+          <span>支払い方法</span>
+          <select name="paymentMethod" required>
+            <option value="cash">現金</option>
+            <option value="bank_transfer">銀行振込</option>
+            <option value="debit">デビット</option>
+            <option value="credit_card">クレジットカード</option>
+            <option value="electronic_money">電子マネー</option>
+            <option value="other">その他</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>口座</span>
+          <select name="accountId">
+            <option value="">未選択</option>
+            {accounts.map((account) => (
+              <option value={account.id}>{account.name}</option>
+            ))}
+          </select>
+        </label>
+        <label class="field">
+          <span>カード</span>
+          <select name="creditCardId">
+            <option value="">未選択</option>
+            {cards.map((card) => (
+              <option value={card.id}>{card.name}</option>
+            ))}
+          </select>
+        </label>
+        <label class="field">
+          <span>メモ</span>
+          <input name="memo" placeholder="昼食" />
+        </label>
+      </div>
+      <div class="form-actions">
+        <button class="primary-button" type="submit">支出を登録</button>
+        <StatusBadge tone="success">今期: {dashboard.currentCycle.name}</StatusBadge>
+      </div>
+    </form>
+  </PageCard>
+
+  <PageCard title="支出一覧">
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>日付</th>
+            <th>支出名</th>
+            <th>金額</th>
+            <th>カテゴリ</th>
+            <th>支払い方法</th>
+            <th>支払い元</th>
+            <th>メモ</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {expenses.map((expense) => (
+            <tr>
+              <td>{formatDate(expense.expenseDate)}</td>
+              <td>{expense.name}</td>
+              <td>{formatYen(expense.amount)}</td>
+              <td>{categoryMap.get(expense.categoryId) ?? expense.categoryId}</td>
+              <td>{expense.paymentMethod}</td>
+              <td>{expense.creditCardId ? cardMap.get(expense.creditCardId) ?? expense.creditCardId : accountMap.get(expense.accountId ?? '') ?? expense.accountId ?? '-'}</td>
+              <td>{expense.memo ?? '-'}</td>
+              <td>
+                <form method="post" action={`/api/expenses/${expense.id}/delete`}>
+                  <button class="ghost-button" type="submit">削除</button>
+                </form>
+              </td>
+            </tr>
+          ))}
+          {expenses.length === 0 ? (
+            <tr>
+              <td colspan="8" class="muted">支出がまだありません。</td>
+            </tr>
+          ) : null}
+        </tbody>
+      </table>
+    </div>
+  </PageCard>
+</AppShell>

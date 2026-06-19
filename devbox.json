@@ -9,8 +9,8 @@
       "export PATH=$PWD/api/node_modules/.bin:$PATH"
     ],
     "scripts": {
-      "install": "bun install --cwd api",
-      "check": "bun run --cwd api check",
+      "install": "bun install --cwd api && bun install --cwd frontend",
+      "check": "bun run --cwd api check && bun run --cwd frontend check",
       "test": "bun run --cwd api test",
       "dev": "bun run --cwd api dev"
     }

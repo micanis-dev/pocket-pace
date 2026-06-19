@@ -1,0 +1,108 @@
+---
+import AppShell from '../components/AppShell.astro';
+import PageCard from '../components/PageCard.astro';
+import StatusBadge from '../components/StatusBadge.astro';
+import { getSession } from '../lib/auth';
+import { loadAccounts, loadCurrentSummary, loadDashboard, loadIncomes } from '../lib/api';
+import { formatDate, formatYen } from '../lib/format';
+
+const session = getSession(Astro.cookies);
+if (!session) return Astro.redirect('/login');
+
+const [incomes, accounts, summary] = await Promise.all([
+  loadIncomes(session),
+  loadAccounts(session),
+  loadCurrentSummary(session).catch(() => null),
+]);
+const dashboard = await loadDashboard(session).catch(() => null);
+
+const error = Astro.url.searchParams.get('error');
+const today = new Date().toISOString().slice(0, 10);
+const accountMap = new Map(accounts.map((account) => [account.id, account.name]));
+---
+
+<AppShell title="収入一覧" description="給与や臨時収入を管理する。" active="incomes">
+  {error ? <div class="badge danger">保存に失敗しました: {error}</div> : null}
+
+  <PageCard title="収入を追加">
+    <form method="post" action="/api/incomes/create" class="stack">
+      <input type="hidden" name="cycleId" value={summary?.cycleId ?? ''} />
+      <div class="field-grid">
+        <label class="field">
+          <span>収入名</span>
+          <input name="name" placeholder="給与" required />
+        </label>
+        <label class="field">
+          <span>金額</span>
+          <input name="amount" type="number" min="1" value="250000" required />
+        </label>
+        <label class="field">
+          <span>入金日</span>
+          <input name="incomeDate" type="date" value={today} required />
+        </label>
+        <label class="field">
+          <span>入金先口座</span>
+          <select name="accountId" required>
+            <option value="">選択してください</option>
+            {accounts.map((account) => (
+              <option value={account.id}>{account.name}</option>
+            ))}
+          </select>
+        </label>
+        <label class="field">
+          <span>種別</span>
+          <select name="type" required>
+            <option value="salary">給与</option>
+            <option value="temporary">臨時</option>
+            <option value="refund">返金</option>
+            <option value="side_job">副業</option>
+            <option value="allowance">お小遣い</option>
+            <option value="other">その他</option>
+          </select>
+        </label>
+      </div>
+      <div class="form-actions">
+        <button class="primary-button" type="submit">収入を登録</button>
+        {summary ? <StatusBadge tone="success">現在の周期: {dashboard?.currentCycle.name ?? summary.cycleId}</StatusBadge> : null}
+      </div>
+    </form>
+  </PageCard>
+
+  <PageCard title="収入一覧">
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>入金日</th>
+            <th>名称</th>
+            <th>金額</th>
+            <th>種別</th>
+            <th>口座</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {incomes.map((income) => (
+            <tr>
+              <td>{formatDate(income.incomeDate)}</td>
+              <td>{income.name}</td>
+              <td>{formatYen(income.amount)}</td>
+              <td>{income.type}</td>
+              <td>{accountMap.get(income.accountId) ?? income.accountId}</td>
+              <td>
+                <form method="post" action={`/api/incomes/${income.id}/delete`}>
+                  <button class="ghost-button" type="submit">削除</button>
+                </form>
+              </td>
+            </tr>
+          ))}
+          {incomes.length === 0 ? (
+            <tr>
+              <td colspan="6" class="muted">収入がまだありません。</td>
+            </tr>
+          ) : null}
+        </tbody>
+      </table>
+    </div>
+  </PageCard>
+</AppShell>

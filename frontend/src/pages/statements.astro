@@ -1,0 +1,116 @@
+---
+import AppShell from '../components/AppShell.astro';
+import PageCard from '../components/PageCard.astro';
+import StatusBadge from '../components/StatusBadge.astro';
+import { getSession } from '../lib/auth';
+import { loadCards, loadCycles, loadStatements } from '../lib/api';
+import { formatDate, formatYen } from '../lib/format';
+
+const session = getSession(Astro.cookies);
+if (!session) return Astro.redirect('/login');
+
+const [statements, cards, cycles] = await Promise.all([
+  loadStatements(session),
+  loadCards(session),
+  loadCycles(session),
+]);
+
+const today = new Date().toISOString().slice(0, 10);
+const error = Astro.url.searchParams.get('error');
+const cardMap = new Map(cards.map((card) => [card.id, card.name]));
+const cycleMap = new Map(cycles.map((cycle) => [cycle.id, cycle.name]));
+---
+
+<AppShell title="カード請求・照合" description="請求額とカード利用の差額を確認する。" active="statements">
+  {error ? <div class="badge danger">保存に失敗しました: {error}</div> : null}
+
+  <PageCard title="請求を追加">
+    <form method="post" action="/api/statements/create" class="stack">
+      <div class="field-grid">
+        <label class="field">
+          <span>カード</span>
+          <select name="creditCardId" required>
+            <option value="">選択してください</option>
+            {cards.map((card) => (
+              <option value={card.id}>{card.name}</option>
+            ))}
+          </select>
+        </label>
+        <label class="field">
+          <span>周期</span>
+          <select name="cycleId" required>
+            <option value="">選択してください</option>
+            {cycles.map((cycle) => (
+              <option value={cycle.id}>{cycle.name}</option>
+            ))}
+          </select>
+        </label>
+        <label class="field">
+          <span>請求対象開始日</span>
+          <input name="statementStartDate" type="date" value={today} required />
+        </label>
+        <label class="field">
+          <span>請求対象終了日</span>
+          <input name="statementEndDate" type="date" value={today} required />
+        </label>
+        <label class="field">
+          <span>支払日</span>
+          <input name="paymentDate" type="date" value={today} required />
+        </label>
+        <label class="field">
+          <span>請求額</span>
+          <input name="billedAmount" type="number" min="1" value="1000" required />
+        </label>
+      </div>
+      <button class="primary-button" type="submit">請求を登録</button>
+    </form>
+  </PageCard>
+
+  <PageCard title="請求一覧">
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>支払日</th>
+            <th>カード</th>
+            <th>周期</th>
+            <th>請求額</th>
+            <th>記録済み</th>
+            <th>差額</th>
+            <th>状態</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {statements.map((statement) => (
+            <tr>
+              <td>{formatDate(statement.paymentDate)}</td>
+              <td>{cardMap.get(statement.creditCardId) ?? statement.creditCardId}</td>
+              <td>{cycleMap.get(statement.cycleId) ?? statement.cycleId}</td>
+              <td>{formatYen(statement.billedAmount)}</td>
+              <td>{formatYen(statement.recordedAmount)}</td>
+              <td class={statement.differenceAmount === 0 ? '' : 'danger'}>{formatYen(statement.differenceAmount)}</td>
+              <td>
+                <StatusBadge tone={statement.status === 'paid' ? 'success' : statement.differenceAmount === 0 ? 'success' : 'warning'}>
+                  {statement.status}
+                </StatusBadge>
+              </td>
+              <td class="form-actions">
+                {statement.status !== 'paid' ? (
+                  <form method="post" action={`/api/statements/${statement.id}/mark-paid`}>
+                    <button class="ghost-button" type="submit">支払済みにする</button>
+                  </form>
+                ) : null}
+              </td>
+            </tr>
+          ))}
+          {statements.length === 0 ? (
+            <tr>
+              <td colspan="8" class="muted">請求がまだありません。</td>
+            </tr>
+          ) : null}
+        </tbody>
+      </table>
+    </div>
+  </PageCard>
+</AppShell>

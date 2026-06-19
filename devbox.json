@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.16.0/.schema/devbox.schema.json",
+
+  "packages": [
+    "bun@latest"
+  ],
+  "shell": {
+    "init_hook": [
+      "export PATH=$PWD/api/node_modules/.bin:$PATH"
+    ],
+    "scripts": {
+      "install": "bun install --cwd api",
+      "check": "bun run --cwd api check",
+      "test": "bun run --cwd api test",
+      "dev": "bun run --cwd api dev"
+    }
+  }
+}

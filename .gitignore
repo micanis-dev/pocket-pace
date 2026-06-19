@@ -1,0 +1,7 @@
+.direnv/
+.devbox/
+api/node_modules/
+api/.wrangler/
+api/.dev.vars
+api/coverage/
+*.log

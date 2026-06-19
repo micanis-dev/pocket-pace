@@ -1,0 +1,5 @@
+AUTH0_DOMAIN=your-tenant.jp.auth0.com
+AUTH0_AUDIENCE=https://api.pocket-pace.example
+DEV_AUTH_BYPASS=true
+DEV_AUTH_SUB=dev-user
+DEV_AUTH_EMAIL=dev@example.com

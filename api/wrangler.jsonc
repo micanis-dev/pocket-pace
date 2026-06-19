@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pocket-pace-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-19",
+  "env": {
+    "preview": {
+      "name": "pocket-pace-api-preview",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "pocket-pace-preview",
+          "database_id": "b2e47c21-f3a7-4243-bdae-fa90cf10478e",
+          "migrations_dir": "migrations"
+        }
+      ]
+    },
+    "production": {
+      "name": "pocket-pace-api-production",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "pocket-pace-production",
+          "database_id": "ee628df1-3900-45f9-8284-4322d16f05d0",
+          "migrations_dir": "migrations"
+        }
+      ]
+    }
+  }
+}

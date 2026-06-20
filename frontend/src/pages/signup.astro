@@ -1,0 +1,6 @@
+---
+import Base from '../layouts/Base.astro';
+import AuthScreen from '../components/AuthScreen';
+if (Astro.cookies.has('pp_session')) return Astro.redirect('/dashboard');
+---
+<Base title="新規登録 | Pocket Pace"><AuthScreen client:load mode="signup" error={Astro.url.searchParams.get('error') ?? undefined} initialEmail={Astro.url.searchParams.get('email') ?? ''}/></Base>

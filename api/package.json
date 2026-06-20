@@ -4,18 +4,20 @@
   "type": "module",
   "packageManager": "bun@1.3.13",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --env local",
+    "deploy:preview": "wrangler deploy --env preview",
+    "deploy:production": "wrangler deploy --env production",
     "check": "tsc --noEmit && eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
-    "db:migrate:local": "wrangler d1 migrations apply pocket-pace-local --local"
+    "db:migrate:local": "wrangler d1 migrations apply pocket-pace-local --local --env local",
+    "db:migrate:preview": "wrangler d1 migrations apply pocket-pace-preview --remote --env preview",
+    "db:migrate:production": "wrangler d1 migrations apply pocket-pace-production --remote --env production"
   },
   "dependencies": {
     "drizzle-orm": "^0.44.2",
     "itty-router": "^5.0.22",
-    "jose": "^6.0.11",
     "zod": "^3.25.67"
   },
   "devDependencies": {

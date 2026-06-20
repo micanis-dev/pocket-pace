@@ -1,11 +1,26 @@
 import { applyD1Migrations, env, SELF } from 'cloudflare:test';
 
-const call = (path: string, init?: RequestInit) => SELF.fetch(`http://example.com${path}`, init);
+const call = (path: string, init?: RequestInit) => {
+  const headers = new Headers(init?.headers);
+  headers.set('x-pocket-pace-user', 'test@example.com');
+  return SELF.fetch(`http://example.com${path}`, { ...init, headers });
+};
 const post = (path: string, value: unknown) => call(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(value) });
+const callAs = (email: string, path: string, init?: RequestInit) => {
+  const headers = new Headers(init?.headers);
+  headers.set('x-pocket-pace-user', email);
+  return SELF.fetch(`http://example.com${path}`, { ...init, headers });
+};
+const postAs = (email: string, path: string, value: unknown) => callAs(email, path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(value) });
 
 beforeEach(async () => { await applyD1Migrations(env.DB, env.TEST_MIGRATIONS); });
 
 describe('Pocket-Pace Worker API', () => {
+  it('requires a local user identity outside the health endpoint', async () => {
+    expect((await SELF.fetch('http://example.com/health')).status).toBe(200);
+    expect((await SELF.fetch('http://example.com/me')).status).toBe(401);
+  });
+
   it('runs the core budget workflow and preserves account/card accounting rules', async () => {
     expect((await call('/health')).status).toBe(200);
     expect((await call('/me')).status).toBe(404);
@@ -79,5 +94,72 @@ describe('Pocket-Pace Worker API', () => {
     const targetAfter = await (await call(`/accounts/${String(target.id)}`)).json<{ currentBalance: number }>();
     expect(sourceAfter.currentBalance).toBe(233_000);
     expect(targetAfter.currentBalance).toBe(10_000);
+  });
+
+  it('generates automatic salary income and reports missing manual salary on the dashboard', async () => {
+    const email = 'automation@example.com';
+    await postAs(email, '/me/sync', { email, displayName: 'Automation Tester' });
+    const account = await (await postAs(email, '/accounts', { name: 'Salary account', type: 'bank', initialBalance: 0 })).json<Record<string, unknown>>();
+    const category = await (await postAs(email, '/expense-categories', { name: 'Fixed cost' })).json<Record<string, unknown>>();
+    await postAs(email, '/budget-cycles', { name: 'June 2026', startDate: '2026-06-01', endDate: '2026-06-30', resetType: 'calendar_based' });
+    await postAs(email, '/income-rules', { accountId: account.id, name: 'Automatic salary', amount: 200_000, incomeDay: 1, inputMode: 'auto' });
+    await postAs(email, '/income-rules', { accountId: account.id, name: 'Variable salary', amount: 50_000, incomeDay: 1, inputMode: 'manual_reminder' });
+    await postAs(email, '/recurring-expenses', { accountId: account.id, categoryId: category.id, name: 'Automatic rent', amount: 10_000, paymentMethod: 'bank_transfer', billingDay: 1, isAmountFixed: true });
+    await postAs(email, '/recurring-expenses', { accountId: account.id, categoryId: category.id, name: 'Variable utility', estimatedAmount: 8_000, paymentMethod: 'bank_transfer', billingDay: 25, isAmountFixed: false });
+
+    const dashboard = await (await callAs(email, '/dashboard')).json<{ budgetSummary: { spendingLimit: number }; alerts: Array<{ type: string }> }>();
+    expect(dashboard.budgetSummary.spendingLimit).toBe(182_000);
+    expect(dashboard.alerts.some((alert) => alert.type === 'salary_input_reminder')).toBe(true);
+    const incomes = await (await callAs(email, '/incomes')).json<Array<{ name: string }>>();
+    expect(incomes.filter((income) => income.name === 'Automatic salary')).toHaveLength(1);
+
+    await callAs(email, '/dashboard');
+    const incomesAfterRefresh = await (await callAs(email, '/incomes')).json<Array<{ name: string }>>();
+    expect(incomesAfterRefresh.filter((income) => income.name === 'Automatic salary')).toHaveLength(1);
+    const expensesAfterRefresh = await (await callAs(email, '/expenses')).json<Array<{ name: string }>>();
+    expect(expensesAfterRefresh.filter((expense) => expense.name === 'Automatic rent')).toHaveLength(1);
+    const plannedAfterRefresh = await (await callAs(email, '/planned-expenses')).json<Array<{ name: string }>>();
+    expect(plannedAfterRefresh.filter((expense) => expense.name === 'Variable utility')).toHaveLength(1);
+  });
+
+  it('persists expense defaults and creates one primary regular savings goal', async () => {
+    const email = 'defaults@example.com';
+    await postAs(email, '/me/sync', { email, displayName: 'Defaults Tester' });
+    const account = await (await postAs(email, '/accounts', { name: 'Main wallet', type: 'wallet', initialBalance: 0 })).json<Record<string, unknown>>();
+    const category = await (await postAs(email, '/expense-categories', { name: 'Daily' })).json<Record<string, unknown>>();
+    const card = await (await postAs(email, '/credit-cards', { name: 'Main card', closingDay: 20, paymentDay: 10, withdrawalAccountId: account.id })).json<Record<string, unknown>>();
+    const updated = await (await callAs(email, '/user-settings', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ defaultCategoryId: category.id, defaultPaymentMethod: 'credit_card', defaultAccountId: account.id, defaultCreditCardId: card.id }) })).json<Record<string, unknown>>();
+    expect(updated).toMatchObject({ defaultCategoryId: category.id, defaultPaymentMethod: 'credit_card', defaultAccountId: account.id, defaultCreditCardId: card.id });
+
+    const first = await (await callAs(email, '/saving-goals')).json<Array<Record<string, unknown>>>();
+    const second = await (await callAs(email, '/saving-goals')).json<Array<Record<string, unknown>>>();
+    expect(first.filter((goal) => goal.isPrimary)).toHaveLength(1);
+    expect(second.filter((goal) => goal.isPrimary)).toHaveLength(1);
+    const primary = second.find((goal) => goal.isPrimary)!;
+    const rule = await postAs(email, '/savings-rules', { name: 'Regular saving', savingGoalId: primary.id, type: 'fixed_amount', amount: 10_000 });
+    expect(rule.status).toBe(201);
+    expect(await rule.json<Record<string, unknown>>()).toMatchObject({ savingGoalId: primary.id });
+  });
+
+  it('supports editing savings rules and listing saving allocation history', async () => {
+    const email = 'savings-ui@example.com';
+    await postAs(email, '/me/sync', { email, displayName: 'Savings UI Tester' });
+    const account = await (await postAs(email, '/accounts', { name: 'Saving source', type: 'bank', initialBalance: 0 })).json<Record<string, unknown>>();
+    const cycle = await (await postAs(email, '/budget-cycles', { name: 'June 2029', startDate: '2029-06-01', endDate: '2029-06-30', resetType: 'calendar_based' })).json<Record<string, unknown>>();
+    const income = await (await postAs(email, '/incomes', { cycleId: cycle.id, accountId: account.id, name: 'Salary 2029', amount: 300_000, incomeDate: '2029-06-01', type: 'salary' })).json<Record<string, unknown>>();
+    const goals = await (await callAs(email, '/saving-goals')).json<Array<Record<string, unknown>>>();
+    const primary = goals.find((goal) => goal.isPrimary)!;
+
+    const createdRule = await (await postAs(email, '/savings-rules', { name: 'Starter plan', savingGoalId: primary.id, type: 'fixed_amount', amount: 10_000 })).json<Record<string, unknown>>();
+    const updatedRule = await (await callAs(email, `/savings-rules/${String(createdRule.id)}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Updated plan', type: 'income_percentage', percentage: 15, amount: null }) })).json<Record<string, unknown>>();
+    expect(updatedRule).toMatchObject({ name: 'Updated plan', type: 'income_percentage', percentage: 15, amount: null });
+
+    expect((await postAs(email, '/saving-allocations', { cycleId: cycle.id, incomeId: income.id, savingGoalId: primary.id, amount: 45_000 })).status).toBe(201);
+    const allocations = await (await callAs(email, `/saving-allocations?cycleId=${String(cycle.id)}`)).json<Array<Record<string, unknown>>>();
+    expect(allocations[0]).toMatchObject({ savingGoalId: primary.id, incomeId: income.id, amount: 45_000 });
+
+    expect((await callAs(email, `/savings-rules/${String(createdRule.id)}`, { method: 'DELETE' })).status).toBe(204);
+    const remainingRules = await (await callAs(email, '/savings-rules')).json<Array<Record<string, unknown>>>();
+    expect(remainingRules.some((rule) => rule.id === createdRule.id)).toBe(false);
   });
 });

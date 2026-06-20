@@ -5,9 +5,10 @@ export const syncUserSchema = z.object({ email: z.string().email(), displayName:
 export const settingsSchema = z.object({
   theme: z.enum(['light', 'dark', 'system']).optional(), themeColor: z.string().trim().min(1).max(30).optional(), currency: z.string().length(3).optional(),
   defaultCycleType: z.enum(['calendar_based', 'salary_based', 'custom']).optional(), defaultBudgetGranularity: z.enum(['daily', 'weekly', 'biweekly', 'monthly']).optional(),
+  defaultCategoryId: nullableId.optional(), defaultPaymentMethod: paymentMethod.optional(), defaultAccountId: nullableId.optional(), defaultCreditCardId: nullableId.optional(),
   notificationEnabled: z.boolean().optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, 'At least one setting is required');
-export const createAccountSchema = z.object({ name: z.string().trim().min(1).max(100), type: z.enum(['bank', 'wallet', 'cash_box', 'electronic_money', 'other']), initialBalance: balance }).strict();
+export const createAccountSchema = z.object({ name: z.string().trim().min(1).max(100), type: z.enum(['bank', 'wallet', 'cash_box', 'electronic_money', 'other']), initialBalance: balance.optional().default(0) }).strict();
 export const updateAccountSchema = createAccountSchema.pick({ name: true, type: true }).partial().strict();
 export const categorySchema = z.object({ name: z.string().trim().min(1).max(100) }).strict();
 export const createCardSchema = z.object({ name: z.string().trim().min(1).max(100), closingDay: z.number().int().min(1).max(31), paymentDay: z.number().int().min(1).max(31), withdrawalAccountId: id }).strict();
@@ -42,7 +43,12 @@ export const incomeRuleSchema = z.object({ accountId: id, name: z.string().trim(
 export const generateIncomeSchema = z.object({ cycleId: id, incomeDate: date, amount: money.optional() }).strict();
 export const savingGoalSchema = z.object({ name: z.string().trim().min(1).max(100), targetAmount: money }).strict();
 export const updateSavingGoalSchema = savingGoalSchema.partial().strict();
-export const savingsRuleSchema = z.object({ name: z.string().trim().min(1).max(100), type: z.enum(['fixed_amount', 'income_percentage', 'manual']), amount: money.optional(), percentage: z.number().int().min(1).max(100).optional() }).strict().superRefine((value, context) => {
+const savingsRuleBaseSchema = z.object({ name: z.string().trim().min(1).max(100), savingGoalId: id.optional(), type: z.enum(['fixed_amount', 'income_percentage', 'manual']), amount: money.optional(), percentage: z.number().int().min(1).max(100).optional() }).strict();
+export const savingsRuleSchema = savingsRuleBaseSchema.superRefine((value, context) => {
+  if (value.type === 'fixed_amount' && !value.amount) context.addIssue({ code: 'custom', path: ['amount'], message: 'amount is required for fixed_amount' });
+  if (value.type === 'income_percentage' && !value.percentage) context.addIssue({ code: 'custom', path: ['percentage'], message: 'percentage is required for income_percentage' });
+});
+export const updateSavingsRuleSchema = z.object({ name: z.string().trim().min(1).max(100).optional(), savingGoalId: nullableId.optional(), type: z.enum(['fixed_amount', 'income_percentage', 'manual']).optional(), amount: money.nullable().optional(), percentage: z.number().int().min(1).max(100).nullable().optional() }).strict().refine((value) => Object.keys(value).length > 0, 'At least one field is required').superRefine((value, context) => {
   if (value.type === 'fixed_amount' && !value.amount) context.addIssue({ code: 'custom', path: ['amount'], message: 'amount is required for fixed_amount' });
   if (value.type === 'income_percentage' && !value.percentage) context.addIssue({ code: 'custom', path: ['percentage'], message: 'percentage is required for income_percentage' });
 });

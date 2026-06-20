@@ -9,7 +9,7 @@ export default {
     try {
       if (new URL(request.url).pathname === '/health') return await router.fetch(request, env, { sub: 'health' });
       validateEnv(env);
-      const identity = await authenticate(request, env);
+      const identity = authenticate(request);
       return await router.fetch(request, env, identity);
     } catch (error) {
       return errorResponse(error, requestId);

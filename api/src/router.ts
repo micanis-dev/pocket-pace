@@ -4,7 +4,7 @@ import type { Identity } from './middleware/auth';
 import { createDb } from './db/client';
 import { AppRepository } from './repositories/app-repository';
 import { AppService } from './use-cases/app-service';
-import { adjustmentSchema, categorySchema, closeCycleSchema, confirmPlannedSchema, createAccountSchema, createCardSchema, cycleSchema, expenseSchema, generateIncomeSchema, generateRecurringSchema, incomeRuleSchema, incomeSchema, notificationSchema, plannedExpenseSchema, recurringExpenseSchema, savingAllocationSchema, savingGoalSchema, savingsRuleSchema, settingsSchema, statementSchema, syncUserSchema, transferSchema, updateAccountSchema, updateCardSchema, updateCycleSchema, updateExpenseSchema, updateIncomeSchema, updateRecurringExpenseSchema, updateSavingGoalSchema } from './schemas/api';
+import { adjustmentSchema, categorySchema, closeCycleSchema, confirmPlannedSchema, createAccountSchema, createCardSchema, cycleSchema, expenseSchema, generateIncomeSchema, generateRecurringSchema, incomeRuleSchema, incomeSchema, notificationSchema, plannedExpenseSchema, recurringExpenseSchema, savingAllocationSchema, savingGoalSchema, savingsRuleSchema, settingsSchema, statementSchema, syncUserSchema, transferSchema, updateAccountSchema, updateCardSchema, updateCycleSchema, updateExpenseSchema, updateIncomeSchema, updateRecurringExpenseSchema, updateSavingGoalSchema, updateSavingsRuleSchema } from './schemas/api';
 import { parseJson } from './schemas/common';
 
 const router = Router<IRequest, [Env, Identity]>();
@@ -27,6 +27,20 @@ const user = async (env: Env, identity: Identity) => service(env).requireUser(id
 router.get('/health', () => json({ status: 'ok' }));
 router.get('/me', async (_request, env, identity) => json(await user(env, identity)));
 router.post('/me/sync', async (request, env, identity) => json(await service(env).sync(identity, await body(request, syncUserSchema)), 201));
+router.get('/debug/db', async (request, env) => {
+  const table = query(request).get('table');
+  const tablesResult = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all<{ name: string }>();
+  const tables = (tablesResult.results ?? []).map(row => row.name).filter(Boolean);
+  const stats = await Promise.all(tables.map(async name => {
+    const result = await env.DB.prepare(`SELECT COUNT(*) AS count FROM "${name.replaceAll('"', '""')}"`).all<{ count: number }>();
+    return { name, count: Number(result.results?.[0]?.count ?? 0) };
+  }));
+  if (!table) return json({ tables: stats });
+  if (!tables.includes(table)) return json({ error: { code: 'NOT_FOUND', message: 'Table was not found' } }, 404);
+  const columnsResult = await env.DB.prepare(`PRAGMA table_info("${table.replaceAll('"', '""')}")`).all<Record<string, unknown>>();
+  const rowsResult = await env.DB.prepare(`SELECT * FROM "${table.replaceAll('"', '""')}" ORDER BY rowid DESC LIMIT 50`).all<Record<string, unknown>>();
+  return json({ tables: stats, table, columns: columnsResult.results ?? [], rows: rowsResult.results ?? [] });
+});
 
 router.get('/user-settings', async (_request, env, identity) => { const current = await user(env, identity); return json(await service(env).settings(current.id)); });
 router.patch('/user-settings', async (request, env, identity) => { const current = await user(env, identity); return json(await service(env).updateSettings(current.id, await body(request, settingsSchema))); });
@@ -90,6 +104,9 @@ router.patch('/saving-goals/:savingGoalId', async (request, env, identity) => { 
 router.delete('/saving-goals/:savingGoalId', async (request, env, identity) => { const current = await user(env, identity); await service(env).deleteSavingGoal(current.id, id(request, 'savingGoalId')); return noContent(); });
 router.get('/savings-rules', async (_request, env, identity) => { const current = await user(env, identity); return json(await service(env).savingsRules(current.id)); });
 router.post('/savings-rules', async (request, env, identity) => { const current = await user(env, identity); return json(await service(env).createSavingsRule(current.id, await body(request, savingsRuleSchema)), 201); });
+router.patch('/savings-rules/:savingRuleId', async (request, env, identity) => { const current = await user(env, identity); return json(await service(env).updateSavingsRule(current.id, id(request, 'savingRuleId'), await body(request, updateSavingsRuleSchema))); });
+router.delete('/savings-rules/:savingRuleId', async (request, env, identity) => { const current = await user(env, identity); await service(env).deleteSavingsRule(current.id, id(request, 'savingRuleId')); return noContent(); });
+router.get('/saving-allocations', async (request, env, identity) => { const current = await user(env, identity); return json(await service(env).savingAllocations(current.id, query(request).get('cycleId') ?? undefined)); });
 router.post('/saving-allocations', async (request, env, identity) => { const current = await user(env, identity); return json(await service(env).createSavingAllocation(current.id, await body(request, savingAllocationSchema)), 201); });
 
 router.get('/credit-card-statements', async (request, env, identity) => { const current = await user(env, identity); const q = query(request); return json(await service(env).statements(current.id, q.get('creditCardId') ?? undefined, q.get('cycleId') ?? undefined)); });

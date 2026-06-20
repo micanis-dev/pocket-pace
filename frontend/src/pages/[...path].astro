@@ -1,0 +1,28 @@
+---
+import Base from '../layouts/Base.astro';
+import App from '../components/App';
+const allowed = ['dashboard','expenses','planning','incomes','income-rules','savings','accounts','transfers','cards','statements','settings/preferences','settings/budget','settings/categories'];
+const path = Astro.params.path ?? '';
+if (!allowed.includes(path)) return Astro.redirect('/dashboard');
+const raw = Astro.cookies.get('pp_session')?.value;
+if (!raw) return Astro.redirect('/login');
+let user = { displayName: 'ユーザー', email: '' };
+try { user = JSON.parse(raw); } catch { return Astro.redirect('/login'); }
+try {
+  const base = import.meta.env.PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8787';
+  const headers = { 'x-pocket-pace-user': user.email };
+  const [accounts, categories, currentCycle] = await Promise.all([
+    fetch(`${base}/accounts`, { headers }),
+    fetch(`${base}/expense-categories`, { headers }),
+    fetch(`${base}/budget-cycles/current`, { headers }),
+  ]);
+  if (accounts.ok && categories.ok) {
+    const accountList = await accounts.json() as unknown[];
+    const categoryList = await categories.json() as unknown[];
+    if (accountList.length === 0 || categoryList.length === 0 || !currentCycle.ok) return Astro.redirect('/onboarding');
+  }
+} catch {
+  // 接続エラーはクライアント側で明示する。
+}
+---
+<Base title="Pocket Pace"><App client:load user={user} initialPath={`/${path}`}/></Base>

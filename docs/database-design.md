@@ -18,12 +18,12 @@ DB設計では、以下を重視する。
 
 ユーザー本体を管理する。
 
-Auth0 を利用する前提なので、アプリ側では `auth0_user_id` を保持する。
+ローカルログインのユーザー識別子として `local_user_id` を保持する。
 
 ```sql
 users
 - id
-- auth0_user_id
+- local_user_id
 - email
 - display_name
 - created_at
@@ -32,9 +32,9 @@ users
 
 ### 備考
 
-- `auth0_user_id` はユニーク制約を付ける。
+- `local_user_id` はユニーク制約を付ける。
 - `email` も基本的にはユニーク制約を付けてよい。
-- 認証情報そのものは Auth0 に任せる。
+- パスワードは持たず、ローカル利用の識別だけを行う。
 
 ---
 

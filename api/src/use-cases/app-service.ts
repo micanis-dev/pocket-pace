@@ -3,7 +3,9 @@ import type { AppRepository } from '../repositories/app-repository';
 import { calculateBudget, validateCycleDates, type Granularity } from '../domain/budget';
 import { AppError } from '../shared/errors';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit',
+}).format(new Date());
 type User = NonNullable<Awaited<ReturnType<AppRepository['userBySubject']>>>;
 
 export class AppService {
@@ -22,7 +24,12 @@ export class AppService {
   }
   sync(identity: Identity, input: { email: string; displayName: string }) { return this.repository.syncUser(identity.sub, input.email, input.displayName); }
   settings(userId: string) { return this.repository.settings(userId); }
-  updateSettings(userId: string, input: Parameters<AppRepository['updateSettings']>[1]) { return this.repository.updateSettings(userId, input); }
+  async updateSettings(userId: string, input: Parameters<AppRepository['updateSettings']>[1]) {
+    if (input.defaultCategoryId) await this.repository.category(userId, input.defaultCategoryId);
+    if (input.defaultAccountId) await this.repository.account(userId, input.defaultAccountId);
+    if (input.defaultCreditCardId) await this.repository.card(userId, input.defaultCreditCardId);
+    return this.repository.updateSettings(userId, input);
+  }
   accounts(userId: string, type?: string) { return this.repository.listAccounts(userId, type); }
   account(userId: string, id: string) { return this.repository.account(userId, id); }
   createAccount(userId: string, input: Parameters<AppRepository['createAccount']>[1]) { return this.repository.createAccount(userId, input); }
@@ -78,11 +85,14 @@ export class AppService {
   incomeRules(userId: string) { return this.repository.listIncomeRules(userId); }
   createIncomeRule(userId: string, input: Parameters<AppRepository['createIncomeRule']>[1]) { return this.repository.createIncomeRule(userId, input); }
   async generateIncomeRule(userId: string, id: string, input: { cycleId: string; incomeDate: string; amount?: number }) { await this.assertDateInCycle(userId, input.cycleId, input.incomeDate); return this.repository.generateIncomeRule(userId, id, input.cycleId, input.incomeDate, input.amount); }
-  savingGoals(userId: string) { return this.repository.listSavingGoals(userId); }
+  async savingGoals(userId: string) { const goals = await this.repository.listSavingGoals(userId); if (goals.some((goal) => goal.isPrimary)) return goals; await this.repository.createSavingGoal(userId, { name: '通常貯金', targetAmount: 0, isPrimary: true }); return this.repository.listSavingGoals(userId); }
   createSavingGoal(userId: string, input: Parameters<AppRepository['createSavingGoal']>[1]) { return this.repository.createSavingGoal(userId, input); }
   updateSavingGoal(userId: string, id: string, input: Parameters<AppRepository['updateSavingGoal']>[2]) { return this.repository.updateSavingGoal(userId, id, input); }
   deleteSavingGoal(userId: string, id: string) { return this.repository.deactivateSavingGoal(userId, id); }
   savingsRules(userId: string) { return this.repository.listSavingsRules(userId); }
+  updateSavingsRule(userId: string, id: string, input: Parameters<AppRepository['updateSavingsRule']>[2]) { return this.repository.updateSavingsRule(userId, id, input); }
+  deleteSavingsRule(userId: string, id: string) { return this.repository.deactivateSavingsRule(userId, id); }
+  savingAllocations(userId: string, cycleId?: string) { return this.repository.listSavingAllocations(userId, cycleId); }
   createSavingsRule(userId: string, input: Parameters<AppRepository['createSavingsRule']>[1]) { return this.repository.createSavingsRule(userId, input); }
   createSavingAllocation(userId: string, input: Parameters<AppRepository['createSavingAllocation']>[1]) { return this.repository.createSavingAllocation(userId, input); }
   notifications(userId: string) { return this.repository.listNotifications(userId); }
@@ -110,5 +120,53 @@ export class AppService {
   }
   async currentSummary(userId: string) { const cycle = await this.currentCycle(userId); return this.summary(userId, cycle.id); }
   async closeCycle(userId: string, cycleId: string, policy: 'add_to_next_cycle' | 'move_to_savings' | 'keep_as_remaining') { const cycle = await this.repository.cycle(userId, cycleId); if (cycle.isClosed) throw new AppError('CONFLICT', 'The cycle is already closed', 409); const summary = await this.summary(userId, cycleId); const amount = Math.max(0, summary.remainingAmount); const next = policy === 'add_to_next_cycle' ? await this.repository.nextCycle(userId, cycle.endDate) : undefined; if (policy === 'add_to_next_cycle' && !next) throw new AppError('CONFLICT', 'Create the next cycle before carrying the balance forward', 409); await this.repository.closeCycle(userId, cycleId, amount, policy, next?.id); return { closedCycleId: cycleId, remainingAmount: amount, carryoverPolicy: policy, nextCycleId: next?.id ?? null }; }
-  async dashboard(userId: string) { const cycle = await this.currentCycle(userId); const [summary, recent] = await Promise.all([this.summary(userId, cycle.id), this.repository.listExpenses(userId, { cycleId: cycle.id }, 5)]); return { currentCycle: cycle, budgetSummary: { spendingLimit: summary.spendingLimit, remainingAmount: summary.remainingAmount, granularity: summary.budgetDisplay.granularity, unitLabel: summary.budgetDisplay.unitLabel, availablePerUnit: summary.budgetDisplay.availablePerUnit, isOverPace: summary.pace.isOverPace }, recentExpenses: recent, alerts: [] }; }
+  async dashboard(userId: string) {
+    const cycle = await this.currentCycle(userId);
+    const [rules, existingIncomes] = await Promise.all([this.repository.listIncomeRules(userId), this.repository.listIncomes(userId, { cycleId: cycle.id })]);
+    const currentDate = today();
+    for (const rule of rules.filter((item) => item.inputMode === 'auto')) {
+      const year = Number(cycle.startDate.slice(0, 4));
+      const month = Number(cycle.startDate.slice(5, 7));
+      const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+      const generatedDate = `${cycle.startDate.slice(0, 8)}${String(Math.min(rule.incomeDay, lastDay)).padStart(2, '0')}`;
+      const exists = existingIncomes.some((income) => income.name === rule.name && income.accountId === rule.accountId);
+      if (!exists && generatedDate >= cycle.startDate && generatedDate <= cycle.endDate && generatedDate <= currentDate) {
+        await this.repository.generateIncomeRule(userId, rule.id, cycle.id, generatedDate);
+      }
+    }
+    const [recurringBeforeGeneration, expensesBeforeGeneration, plannedBeforeGeneration] = await Promise.all([
+      this.repository.listRecurring(userId),
+      this.repository.listExpenses(userId, { cycleId: cycle.id }),
+      this.repository.listPlanned(userId, cycle.id),
+    ]);
+    for (const recurring of recurringBeforeGeneration) {
+      const year = Number(cycle.startDate.slice(0, 4));
+      const month = Number(cycle.startDate.slice(5, 7));
+      const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+      const targetDate = `${cycle.startDate.slice(0, 8)}${String(Math.min(recurring.billingDay, lastDay)).padStart(2, '0')}`;
+      const exists = recurring.isAmountFixed
+        ? expensesBeforeGeneration.some((expense) => expense.recurringExpenseId === recurring.id)
+        : plannedBeforeGeneration.some((expense) => expense.name === recurring.name && expense.plannedDate === targetDate && expense.accountId === recurring.accountId && expense.creditCardId === recurring.creditCardId);
+      if (!exists && targetDate >= cycle.startDate && targetDate <= cycle.endDate && (!recurring.isAmountFixed || targetDate <= currentDate)) await this.repository.generateRecurring(userId, recurring.id, cycle.id, targetDate);
+    }
+    const [summary, recent, incomesAfterGeneration, planned, recurring, notificationSettings, settings] = await Promise.all([
+      this.summary(userId, cycle.id),
+      this.repository.listExpenses(userId, { cycleId: cycle.id }, 5),
+      this.repository.listIncomes(userId, { cycleId: cycle.id }),
+      this.repository.listPlanned(userId, cycle.id, 'planned'),
+      this.repository.listRecurring(userId),
+      this.repository.listNotifications(userId),
+      this.repository.settings(userId),
+    ]);
+    const notificationEnabled = (type: string) => settings.notificationEnabled && notificationSettings.find((item) => item.type === type)?.enabled !== false;
+    const alerts: Array<{ id: string; type: string; message: string }> = [];
+    if (notificationEnabled('overspending_alert') && summary.pace.isOverPace) alerts.push({ id: 'overspending', type: 'overspending_alert', message: '現在の支出ペースが予算を上回っています。' });
+    if (notificationEnabled('cycle_end_reminder') && summary.period.remainingDays <= 3) alerts.push({ id: 'cycle-end', type: 'cycle_end_reminder', message: `予算周期の終了まであと${summary.period.remainingDays}日です。残額は${summary.remainingAmount.toLocaleString('ja-JP')}円です。` });
+    for (const rule of rules.filter((item) => item.inputMode === 'manual_reminder' && item.incomeDay <= Number(currentDate.slice(8, 10)))) {
+      if (!incomesAfterGeneration.some((income) => income.name === rule.name && income.accountId === rule.accountId) && notificationEnabled('salary_input_reminder')) alerts.push({ id: `salary-${rule.id}`, type: 'salary_input_reminder', message: `${rule.name}の入力日を過ぎています。収入を入力してください。` });
+    }
+    for (const item of planned.filter((expense) => expense.plannedDate <= currentDate)) if (notificationEnabled('missing_input_reminder')) alerts.push({ id: `planned-${item.id}`, type: 'missing_input_reminder', message: `${item.name}の予定日を過ぎています。金額を確定してください。` });
+    for (const item of recurring.filter((expense) => expense.billingDay === Number(currentDate.slice(8, 10)))) if (notificationEnabled('fixed_expense_reminder')) alerts.push({ id: `recurring-${item.id}`, type: 'fixed_expense_reminder', message: `今日は${item.name}の支払予定日です。` });
+    return { currentCycle: cycle, budgetSummary: { spendingLimit: summary.spendingLimit, remainingAmount: summary.remainingAmount, granularity: summary.budgetDisplay.granularity, unitLabel: summary.budgetDisplay.unitLabel, availablePerUnit: summary.budgetDisplay.availablePerUnit, isOverPace: summary.pace.isOverPace }, recentExpenses: recent, alerts };
+  }
 }

@@ -1,0 +1,121 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is([data-theme="dark"] *));
+
+:root {
+  --background: oklch(0.97 0.003 250);
+  --foreground: oklch(0.19 0.01 250);
+  --card: oklch(1 0 0 / 82%);
+  --card-foreground: var(--foreground);
+  --popover: oklch(1 0 0 / 94%);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.58 0.2 255);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.94 0.006 250);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.94 0.006 250);
+  --muted-foreground: #5f6368;
+  --accent: oklch(0.94 0.01 250);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(0.62 0.23 25);
+  --border: oklch(0.2 0.01 250 / 9%);
+  --input: #6e6e73;
+  --ring: oklch(0.62 0.19 255 / 30%);
+  --link: #0066cc;
+  --control-track: #6e6e73;
+  --radius: 0.875rem;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Noto Sans JP", system-ui, sans-serif;
+  color: #1d1d1f;
+  background: #f5f5f7;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-link: var(--link);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 6px);
+}
+
+* { box-sizing: border-box; border-color: var(--border); }
+html { min-width: 320px; min-height: 100%; background: #f5f5f7; }
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 75% -20%, rgb(255 255 255 / 90%) 0, transparent 38rem),
+    linear-gradient(180deg, #fafafa 0, #f4f4f6 45%, #f2f2f5 100%);
+}
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button, input, select, textarea { font: inherit; }
+::selection { background: rgb(0 122 255 / 18%); }
+.money { font-variant-numeric: tabular-nums; letter-spacing: -0.04em; }
+
+/* Existing utility markup is normalized into a restrained Apple-like surface. */
+[class~="bg-white"] { background-color: rgb(255 255 255 / 76%) !important; }
+[class~="text-slate-400"] { color: #5f6368 !important; }
+[class~="text-emerald-600"] { color: #047857 !important; }
+aside[class*="fixed"] { background: rgb(248 248 250 / 78%) !important; backdrop-filter: saturate(180%) blur(24px); }
+header[class*="sticky"] { background: rgb(255 255 255 / 72%) !important; backdrop-filter: saturate(180%) blur(24px); }
+[class~="shadow-sm"] { box-shadow: 0 1px 2px rgb(0 0 0 / 3%), 0 10px 30px rgb(0 0 0 / 3.5%) !important; }
+[class~="bg-[#5b55e7]"] { background-color: #0066cc !important; }
+[class~="text-[#5b55e7]"], [class~="text-[#655cf5]"], [class~="text-[#514bd5]"] { color: #0066cc !important; }
+[class~="bg-[#eeedff]"] { background-color: rgb(0 122 255 / 9%) !important; }
+
+html[data-theme="dark"] {
+  --background: oklch(0.18 0.008 250);
+  --foreground: oklch(0.94 0.004 250);
+  --card: oklch(0.24 0.008 250 / 82%);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.25 0.008 250 / 95%);
+  --popover-foreground: var(--foreground);
+  --secondary: oklch(0.28 0.008 250);
+  --muted: oklch(0.28 0.008 250);
+  --muted-foreground: #b0b0b5;
+  --border: oklch(1 0 0 / 11%);
+  --input: #8e8e93;
+  --link: #64a8ff;
+  --control-track: #8e8e93;
+  color: #f5f5f7;
+  background: #111214;
+}
+html[data-theme="dark"] body { background: radial-gradient(circle at 75% -20%, #292b31 0, transparent 38rem), #111214; color: #f5f5f7; }
+html[data-theme="dark"] [class~="bg-white"] { background-color: rgb(35 36 40 / 82%) !important; }
+html[data-theme="dark"] aside[class*="fixed"], html[data-theme="dark"] header[class*="sticky"] { background: rgb(27 28 31 / 78%) !important; }
+html[data-theme="dark"] [class~="bg-slate-50"], html[data-theme="dark"] [class~="bg-slate-50/70"] { background-color: rgb(255 255 255 / 6%) !important; }
+html[data-theme="dark"] [class*="text-slate-9"], html[data-theme="dark"] [class*="text-slate-8"], html[data-theme="dark"] [class*="text-slate-7"], html[data-theme="dark"] [class*="text-zinc-9"], html[data-theme="dark"] [class*="text-zinc-8"], html[data-theme="dark"] [class*="text-zinc-7"] { color: #f5f5f7 !important; }
+html[data-theme="dark"] [class*="text-slate-6"], html[data-theme="dark"] [class*="text-slate-5"], html[data-theme="dark"] [class*="text-slate-4"], html[data-theme="dark"] [class*="text-zinc-6"], html[data-theme="dark"] [class*="text-zinc-5"] { color: #b0b0b5 !important; }
+html[data-theme="dark"] [class*="border-slate-"], html[data-theme="dark"] [class*="border-black"] { border-color: rgb(255 255 255 / 10%) !important; }
+html[data-theme="dark"] [class~="text-[#5b55e7]"], html[data-theme="dark"] [class~="text-[#655cf5]"], html[data-theme="dark"] [class~="text-[#514bd5]"] { color: #64a8ff !important; }
+html[data-theme="dark"] [class~="text-emerald-600"] { color: #6ee7b7 !important; }
+html[data-theme="dark"] [class~="text-rose-600"] { color: #fda4af !important; }
+
+html[data-accent="green"] { --primary: oklch(0.62 0.16 155); }
+html[data-accent="rose"] { --primary: oklch(0.62 0.22 20); }
+html[data-accent="orange"] { --primary: oklch(0.7 0.18 55); }
+html[data-accent="green"] [class~="bg-[#5b55e7]"] { background-color: #007a33 !important; }
+html[data-accent="rose"] [class~="bg-[#5b55e7]"] { background-color: #c7003d !important; }
+html[data-accent="orange"] [class~="bg-[#5b55e7]"] { background-color: #a64000 !important; }

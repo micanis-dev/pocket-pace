@@ -198,3 +198,99 @@
 - `POST /expense-categories`
 - `PATCH /expense-categories/{categoryId}`
 - `DELETE /expense-categories/{categoryId}`
+
+---
+
+## 11. 貯金管理画面
+
+**目的**
+
+毎月の貯金ルールを設定し、収入または予算周期から目的別貯金へ振り分ける。
+
+**表示項目**
+
+- 目的別の目標額
+- 目的別の現在額と達成率
+- 貯金済み合計
+- 登録済みの貯金ルール
+- 今期の振り分け元となる収入
+
+**操作**
+
+- 貯金目的を追加・編集・無効化する
+- 固定金額・収入割合・手動の貯金ルールを追加する
+- 収入または現在の予算周期から貯金目的へ金額を振り分ける
+
+**利用 API**
+
+- `GET /saving-goals`
+- `POST /saving-goals`
+- `PATCH /saving-goals/{savingGoalId}`
+- `DELETE /saving-goals/{savingGoalId}`
+- `GET /savings-rules`
+- `POST /savings-rules`
+- `GET /incomes`
+- `POST /saving-allocations`
+
+---
+
+## 12. 口座間資金移動画面
+
+口座間の移動履歴を表示し、移動元・移動先・金額・日付・メモを指定して記録する。資金移動は支出へ計上しない。
+
+**利用 API**
+
+- `GET /account-transfers`
+- `POST /account-transfers`
+- `GET /accounts`
+
+---
+
+## 13. 予定支出・固定費画面
+
+金額未確定の予定支出と、毎月発生する固定費・サブスクを管理する。予定支出は予算への反映有無を選択でき、確定後は実支出へ変換する。固定費は当期の支出を生成できる。
+
+**利用 API**
+
+- `GET /planned-expenses`
+- `POST /planned-expenses`
+- `POST /planned-expenses/{plannedExpenseId}/confirm`
+- `GET /recurring-expenses`
+- `POST /recurring-expenses`
+- `DELETE /recurring-expenses/{recurringExpenseId}`
+- `POST /recurring-expenses/{recurringExpenseId}/generate`
+
+---
+
+## 14. 給与・収入ルール画面
+
+給与名、通常金額、給料日、入金先口座を登録し、自動入力または手動通知を選択する。自動入力は給料日以降のホーム取得時に未生成の当期分を作成する。
+
+**利用 API**
+
+- `GET /income-rules`
+- `POST /income-rules`
+- `POST /income-rules/{incomeRuleId}/generate`
+
+---
+
+## 15. 表示・通知設定画面
+
+ライト・ダーク・システムテーマ、テーマカラー、通知全体と通知種別ごとの有効・無効を設定する。
+
+**利用 API**
+
+- `GET /user-settings`
+- `PATCH /user-settings`
+- `GET /notification-settings`
+- `PATCH /notification-settings/{type}`
+
+---
+
+## 16. 周期終了・繰り越し操作
+
+予算周期設定画面から進行中の周期を締め、残額を次周期へ追加、貯金へ移動、または残額として保持する。
+
+**利用 API**
+
+- `POST /budget-cycles/{cycleId}/close`

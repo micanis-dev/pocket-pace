@@ -1,0 +1,25 @@
+---
+import '../styles/global.css';
+interface Props { title?: string; }
+const { title = 'Pocket Pace' } = Astro.props;
+---
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f5f7" />
+    <meta name="description" content="使えるお金が、ひと目でわかる。Pocket Pace" />
+    <title>{title}</title>
+    <script is:inline>
+      (() => {
+        const theme = localStorage.getItem('pp_theme') || 'system';
+        const dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        document.documentElement.dataset.accent = localStorage.getItem('pp_accent') || 'blue';
+        document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+      })();
+    </script>
+  </head>
+  <body><slot /></body>
+</html>

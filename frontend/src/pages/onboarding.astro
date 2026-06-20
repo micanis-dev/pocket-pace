@@ -1,0 +1,5 @@
+---
+import Base from '../layouts/Base.astro'; import Onboarding from '../components/Onboarding';
+if (!Astro.cookies.has('pp_session')) return Astro.redirect('/signup');
+---
+<Base title="初期セットアップ | Pocket Pace"><Onboarding client:load /></Base>

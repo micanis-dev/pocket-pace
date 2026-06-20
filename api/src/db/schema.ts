@@ -7,7 +7,7 @@ const timestamps = {
 
 export const users = sqliteTable('users', {
   id: text('id').primaryKey(),
-  auth0UserId: text('auth0_user_id').notNull().unique(),
+  localUserId: text('local_user_id').notNull().unique(),
   email: text('email').notNull().unique(),
   displayName: text('display_name').notNull(),
   ...timestamps,
@@ -21,6 +21,10 @@ export const userSettings = sqliteTable('user_settings', {
   currency: text('currency').notNull().default('JPY'),
   defaultCycleType: text('default_cycle_type').notNull().default('calendar_based'),
   defaultBudgetGranularity: text('default_budget_granularity').notNull().default('daily'),
+  defaultCategoryId: text('default_category_id'),
+  defaultPaymentMethod: text('default_payment_method').notNull().default('cash'),
+  defaultAccountId: text('default_account_id'),
+  defaultCreditCardId: text('default_credit_card_id'),
   notificationEnabled: integer('notification_enabled', { mode: 'boolean' }).notNull().default(true),
   ...timestamps,
 });
@@ -96,13 +100,13 @@ export const incomeRules = sqliteTable('income_rules', {
 
 export const savingsRules = sqliteTable('savings_rules', {
   id: text('id').primaryKey(), userId: text('user_id').notNull().references(() => users.id), name: text('name').notNull(), type: text('type').notNull(),
-  amount: integer('amount'), percentage: integer('percentage'), isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true), ...timestamps,
+  savingGoalId: text('saving_goal_id'), amount: integer('amount'), percentage: integer('percentage'), isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true), ...timestamps,
 });
 
 export const savingGoals = sqliteTable('saving_goals', {
   id: text('id').primaryKey(), userId: text('user_id').notNull().references(() => users.id), name: text('name').notNull(),
   targetAmount: integer('target_amount').notNull(), currentAmount: integer('current_amount').notNull().default(0),
-  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true), ...timestamps,
+  isPrimary: integer('is_primary', { mode: 'boolean' }).notNull().default(false), isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true), ...timestamps,
 });
 
 export const savingAllocations = sqliteTable('saving_allocations', {

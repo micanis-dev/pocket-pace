@@ -1,3 +1,5 @@
 ---
-return Astro.redirect(Astro.cookies.has('pp_session') ? '/dashboard' : '/login');
+import { getSession } from '../lib/server/auth';
+if (await getSession(Astro.cookies)) return Astro.redirect('/dashboard');
+return Astro.redirect('/login');
 ---

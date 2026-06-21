@@ -14,6 +14,9 @@
   "env": {
     "local": {
       "name": "pocket-pace-api-local",
+      "vars": {
+        "AUTH_MODE": "local"
+      },
       "d1_databases": [
         {
           "binding": "DB",
@@ -25,6 +28,9 @@
     },
     "preview": {
       "name": "pocket-pace-api-preview",
+      "vars": {
+        "AUTH_MODE": "oidc"
+      },
       "d1_databases": [
         {
           "binding": "DB",
@@ -36,6 +42,9 @@
     },
     "production": {
       "name": "pocket-pace-api-production",
+      "vars": {
+        "AUTH_MODE": "oidc"
+      },
       "d1_databases": [
         {
           "binding": "DB",

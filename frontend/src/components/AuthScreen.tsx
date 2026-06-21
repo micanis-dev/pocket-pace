@@ -2,13 +2,15 @@ import { Button, UIProvider, Input, Link } from './ui';
 import { ArrowRight, Gauge } from 'lucide-react';
 import FormField from './FormField';
 
-export default function AuthScreen({ mode, error, initialEmail = '' }: { mode: 'login' | 'signup'; error?: string; initialEmail?: string }) {
+export default function AuthScreen({ mode, authMode, error, initialEmail = '' }: { mode: 'login' | 'signup'; authMode: 'local' | 'oidc'; error?: string; initialEmail?: string }) {
   const signup = mode === 'signup';
   const message =
     error === 'unregistered'
       ? '未登録のメールアドレスです。新規登録を続けてください。'
       : error === 'offline'
         ? 'APIサーバーに接続できません。起動状態を確認してください。'
+        : error === 'provider'
+          ? '認証プロバイダでのログインを完了できませんでした。'
         : error === 'api'
           ? 'ユーザー情報を同期できませんでした。'
           : error
@@ -32,21 +34,35 @@ export default function AuthScreen({ mode, error, initialEmail = '' }: { mode: '
             <p className="mt-2 text-sm text-slate-500">{signup ? 'まずは名前とメールアドレスを入力してください。' : 'メールアドレスで続けます。'}</p>
 
             {message && <div className="mt-5 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{message}</div>}
-
-            <form action="/api/auth/login" method="post" className="mt-6 space-y-4">
-              <input type="hidden" name="mode" value={mode} />
-              {signup && (
-                <FormField label="お名前">
-                  <Input isRequired aria-label="お名前" name="displayName" placeholder="例: 山田 太郎" />
+            {authMode === 'local' ? (
+              <form action="/api/auth/login" method="post" className="mt-6 space-y-4">
+                <input type="hidden" name="mode" value={mode} />
+                {signup && (
+                  <FormField label="お名前">
+                    <Input isRequired aria-label="お名前" name="displayName" placeholder="例: 山田 太郎" />
+                  </FormField>
+                )}
+                <FormField label="メールアドレス">
+                  <Input isRequired aria-label="メールアドレス" name="email" type="email" placeholder="you@example.com" defaultValue={initialEmail} />
                 </FormField>
-              )}
-              <FormField label="メールアドレス">
-                <Input isRequired aria-label="メールアドレス" name="email" type="email" placeholder="you@example.com" defaultValue={initialEmail} />
-              </FormField>
-              <Button type="submit" color="primary" className="w-full bg-slate-900 font-medium" endContent={<ArrowRight size={18} />}>
-                {signup ? '登録して開始' : 'ログイン'}
-              </Button>
-            </form>
+                <Button type="submit" color="primary" className="w-full bg-slate-900 font-medium" endContent={<ArrowRight size={18} />}>
+                  {signup ? '登録して開始' : 'ログイン'}
+                </Button>
+              </form>
+            ) : (
+              <div className="mt-6 space-y-4">
+                <p className="text-sm text-slate-500">
+                  {signup ? 'Google や Microsoft などのOIDCプロバイダで本人確認して開始します。' : '登録済みのOIDCアカウントで続けます。'}
+                </p>
+                <a
+                  href={`/api/auth/start?mode=${mode}`}
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-medium text-white transition hover:bg-slate-800"
+                >
+                  {signup ? '認証して開始' : '認証してログイン'}
+                  <ArrowRight size={18} />
+                </a>
+              </div>
+            )}
 
             <div className="mt-5 text-center text-sm text-slate-500">
               {signup ? 'すでにアカウントがありますか？' : 'はじめて利用しますか？'}{' '}

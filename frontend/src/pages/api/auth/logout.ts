@@ -1,3 +1,4 @@
 import type { APIRoute } from 'astro';
-export const POST: APIRoute = ({ cookies, redirect }) => { cookies.delete('pp_session', { path: '/' }); return redirect('/login', 303); };
+import { clearSessionCookie } from '../../../lib/server/auth';
+export const POST: APIRoute = ({ cookies, redirect }) => { clearSessionCookie(cookies); return redirect('/login', 303); };
 export const GET = POST;

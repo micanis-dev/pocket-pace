@@ -127,6 +127,67 @@ devbox run check
 devbox run test
 ```
 
-## ローカル認証
+## 認証モード
 
-ログイン画面で入力したメールアドレスをローカルユーザー ID として利用する。Astro は HTTP-only Cookie にセッションを保存し、サーバー間通信でのみ API へユーザー ID を渡す。パスワード、Auth0、アクセストークン、外部 Secrets は不要である。
+認証は `AUTH_MODE` で切り替える。
+
+- `local`: ローカル開発用。メールアドレス入力でログインし、署名付きCookieを発行する
+- `oidc`: preview / production 用。OIDC provider の Authorization Code + PKCE でログインし、署名付きCookieを発行する
+
+API は `Authorization: Bearer <session-token>` を優先して検証する。`AUTH_MODE=local` のときだけ `x-pocket-pace-user` ヘッダも受け付ける。
+
+## 本番用の環境変数
+
+frontend:
+
+```sh
+PUBLIC_API_BASE_URL=https://api.example.com
+PUBLIC_APP_BASE_URL=https://YOUR_VERCEL_DOMAIN_OR_CUSTOM_DOMAIN
+PUBLIC_AUTH_MODE=oidc
+AUTH_MODE=oidc
+AUTH_SESSION_SECRET=YOUR_LONG_RANDOM_SECRET
+OIDC_ISSUER=https://YOUR_PROVIDER
+OIDC_CLIENT_ID=YOUR_CLIENT_ID
+OIDC_CLIENT_SECRET=YOUR_CLIENT_SECRET
+OIDC_AUTHORIZATION_ENDPOINT=https://YOUR_PROVIDER/oauth2/authorize
+OIDC_TOKEN_ENDPOINT=https://YOUR_PROVIDER/oauth2/token
+OIDC_USERINFO_ENDPOINT=https://YOUR_PROVIDER/oauth2/userInfo
+```
+
+API:
+
+```sh
+wrangler secret put AUTH_SESSION_SECRET --env preview
+wrangler secret put AUTH_SESSION_SECRET --env production
+```
+
+`api/wrangler.jsonc` では preview / production の `AUTH_MODE` を `oidc` にしてある。frontend と API の `AUTH_SESSION_SECRET` は同じ値に揃える。
+
+## Vercel 配置
+
+frontend は Vercel にデプロイする。Astro は `@astrojs/vercel/serverless` を使う。
+
+設定する環境変数は少なくとも次のとおり。
+
+- `PUBLIC_API_BASE_URL`
+- `PUBLIC_APP_BASE_URL`
+- `PUBLIC_AUTH_MODE`
+- `AUTH_MODE`
+- `AUTH_SESSION_SECRET`
+- `OIDC_ISSUER`
+- `OIDC_CLIENT_ID`
+- `OIDC_CLIENT_SECRET`
+- `OIDC_AUTHORIZATION_ENDPOINT`
+- `OIDC_TOKEN_ENDPOINT`
+- `OIDC_USERINFO_ENDPOINT`
+
+Vercel 側の Build Command は `npm run build`、Output は Astro adapter に任せる。`PUBLIC_APP_BASE_URL` は Vercel の実 URL か custom domain にする。
+
+## OIDC provider 設定
+
+redirect URI は環境ごとに次を登録する。
+
+- preview: `https://YOUR_PREVIEW_APP/api/auth/callback`
+- production: `https://YOUR_APP/api/auth/callback`
+
+userinfo endpoint で `sub` と `email` が返る provider を使うこと。`name` が無い場合は `preferred_username`、それも無い場合はメールアドレスを表示名として使う。

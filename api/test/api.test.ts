@@ -1,5 +1,23 @@
 import { applyD1Migrations, env, SELF } from 'cloudflare:test';
 
+const encoder = new TextEncoder();
+const encodeBase64url = (value: Uint8Array) => btoa(Array.from(value, (byte) => String.fromCharCode(byte)).join('')).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/u, '');
+const signSession = async (email: string, displayName = 'Tester') => {
+  const header = encodeBase64url(encoder.encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
+  const payload = encodeBase64url(encoder.encode(JSON.stringify({
+    sub: `local:${email}`,
+    email,
+    displayName,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    iss: 'pocket-pace-frontend',
+    aud: 'pocket-pace-api',
+  })));
+  const key = await crypto.subtle.importKey('raw', encoder.encode('local-development-session-secret'), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(`${header}.${payload}`));
+  return `${header}.${payload}.${encodeBase64url(new Uint8Array(signature))}`;
+};
+
 const call = (path: string, init?: RequestInit) => {
   const headers = new Headers(init?.headers);
   headers.set('x-pocket-pace-user', 'test@example.com');
@@ -11,6 +29,11 @@ const callAs = (email: string, path: string, init?: RequestInit) => {
   headers.set('x-pocket-pace-user', email);
   return SELF.fetch(`http://example.com${path}`, { ...init, headers });
 };
+const callWithBearer = async (email: string, path: string, init?: RequestInit) => {
+  const headers = new Headers(init?.headers);
+  headers.set('authorization', `Bearer ${await signSession(email)}`);
+  return SELF.fetch(`http://example.com${path}`, { ...init, headers });
+};
 const postAs = (email: string, path: string, value: unknown) => callAs(email, path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(value) });
 
 beforeEach(async () => { await applyD1Migrations(env.DB, env.TEST_MIGRATIONS); });
@@ -19,6 +42,13 @@ describe('Pocket-Pace Worker API', () => {
   it('requires a local user identity outside the health endpoint', async () => {
     expect((await SELF.fetch('http://example.com/health')).status).toBe(200);
     expect((await SELF.fetch('http://example.com/me')).status).toBe(401);
+  });
+
+  it('accepts signed bearer sessions', async () => {
+    const email = 'bearer@example.com';
+    expect((await callWithBearer(email, '/me')).status).toBe(404);
+    expect((await callWithBearer(email, '/me/sync', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, displayName: 'Bearer Tester' }) })).status).toBe(201);
+    expect((await callWithBearer(email, '/me')).status).toBe(200);
   });
 
   it('runs the core budget workflow and preserves account/card accounting rules', async () => {

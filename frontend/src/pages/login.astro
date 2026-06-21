@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import AuthScreen from '../components/AuthScreen';
-if (Astro.cookies.has('pp_session')) return Astro.redirect('/dashboard');
+import { getPublicAuthMode, getSession } from '../lib/server/auth';
+if (await getSession(Astro.cookies)) return Astro.redirect('/dashboard');
 ---
-<Base title="ログイン | Pocket Pace"><AuthScreen client:load mode="login" error={Astro.url.searchParams.get('error') ?? undefined}/></Base>
+<Base title="ログイン | Pocket Pace"><AuthScreen client:load mode="login" authMode={getPublicAuthMode()} error={Astro.url.searchParams.get('error') ?? undefined}/></Base>

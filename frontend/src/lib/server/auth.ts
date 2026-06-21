@@ -65,15 +65,18 @@ async function sign(value: string, secret: string) {
 }
 
 function getSessionSecret() {
-  return import.meta.env.AUTH_SESSION_SECRET?.trim() || 'local-development-session-secret';
+  const secret = import.meta.env.AUTH_SESSION_SECRET?.trim();
+  if (secret) return secret;
+  if (import.meta.env.PROD) throw new Error('AUTH_SESSION_SECRET is required in production');
+  return 'local-development-session-secret';
 }
 
 export function getAuthMode(): AuthMode {
-  return import.meta.env.AUTH_MODE === 'oidc' ? 'oidc' : 'local';
+  return import.meta.env.AUTH_MODE === 'oidc' || import.meta.env.PUBLIC_AUTH_MODE === 'oidc' ? 'oidc' : 'local';
 }
 
 export function getPublicAuthMode(): AuthMode {
-  return import.meta.env.PUBLIC_AUTH_MODE === 'oidc' || import.meta.env.AUTH_MODE === 'oidc' ? 'oidc' : 'local';
+  return getAuthMode();
 }
 
 export async function createSessionToken(input: { sub: string; email: string; displayName: string }, now = Math.floor(Date.now() / 1000)) {

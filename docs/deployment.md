@@ -162,6 +162,7 @@ wrangler secret put AUTH_SESSION_SECRET --env production
 ```
 
 `api/wrangler.jsonc` では preview / production の `AUTH_MODE` を `oidc` にしてある。frontend と API の `AUTH_SESSION_SECRET` は同じ値に揃える。
+frontend の `AUTH_MODE` と `PUBLIC_AUTH_MODE` は片方を `oidc` にすれば OIDC モードになる。設定の混乱を避けるため、通常は両方に同じ値を設定する。
 
 ## Vercel 配置
 

@@ -9,6 +9,8 @@ export default function AuthScreen({ mode, authMode, error, initialEmail = '' }:
       ? '未登録のメールアドレスです。新規登録を続けてください。'
       : error === 'offline'
         ? 'APIサーバーに接続できません。起動状態を確認してください。'
+        : error === 'config'
+          ? '認証設定が不足しています。管理者に問い合わせてください。'
         : error === 'provider'
           ? '認証プロバイダでのログインを完了できませんでした。'
         : error === 'api'

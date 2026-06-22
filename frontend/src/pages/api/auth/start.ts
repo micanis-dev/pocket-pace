@@ -4,13 +4,13 @@ import { getAuthMode, getOidcConfig, randomToken, setOAuthCookie, sha256base64ur
 export const GET: APIRoute = async ({ request, cookies, redirect }) => {
   if (getAuthMode() !== 'oidc') return redirect('/login', 303);
   try {
+    const config = getOidcConfig();
     const url = new URL(request.url);
     const mode = url.searchParams.get('mode') === 'signup' ? 'signup' : 'login';
     const verifier = randomToken(48);
     const state = randomToken(24);
     await setOAuthCookie(cookies, { state, verifier, mode });
 
-    const config = getOidcConfig();
     const target = new URL(config.authorizationEndpoint);
     target.searchParams.set('response_type', 'code');
     target.searchParams.set('client_id', config.clientId);

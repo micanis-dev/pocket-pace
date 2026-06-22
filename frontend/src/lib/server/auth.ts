@@ -180,16 +180,26 @@ export async function sha256base64url(value: string) {
 }
 
 export function getOidcConfig(): OidcEnv {
-  const redirectBase = import.meta.env.PUBLIC_APP_BASE_URL?.trim();
-  const issuer = import.meta.env.OIDC_ISSUER?.trim();
-  const clientId = import.meta.env.OIDC_CLIENT_ID?.trim();
-  const clientSecret = import.meta.env.OIDC_CLIENT_SECRET?.trim();
-  const authorizationEndpoint = import.meta.env.OIDC_AUTHORIZATION_ENDPOINT?.trim();
-  const tokenEndpoint = import.meta.env.OIDC_TOKEN_ENDPOINT?.trim();
-  const userinfoEndpoint = import.meta.env.OIDC_USERINFO_ENDPOINT?.trim();
-  if (!redirectBase || !issuer || !clientId || !clientSecret || !authorizationEndpoint || !tokenEndpoint || !userinfoEndpoint) {
-    throw new Error('OIDC environment variables are incomplete');
+  const values = {
+    PUBLIC_APP_BASE_URL: import.meta.env.PUBLIC_APP_BASE_URL?.trim(),
+    OIDC_ISSUER: import.meta.env.OIDC_ISSUER?.trim(),
+    OIDC_CLIENT_ID: import.meta.env.OIDC_CLIENT_ID?.trim(),
+    OIDC_CLIENT_SECRET: import.meta.env.OIDC_CLIENT_SECRET?.trim(),
+    OIDC_AUTHORIZATION_ENDPOINT: import.meta.env.OIDC_AUTHORIZATION_ENDPOINT?.trim(),
+    OIDC_TOKEN_ENDPOINT: import.meta.env.OIDC_TOKEN_ENDPOINT?.trim(),
+    OIDC_USERINFO_ENDPOINT: import.meta.env.OIDC_USERINFO_ENDPOINT?.trim(),
+  };
+  const missing = Object.entries(values).filter(([, value]) => !value).map(([name]) => name);
+  if (missing.length > 0) {
+    throw new Error(`Missing OIDC environment variables: ${missing.join(', ')}`);
   }
+  const redirectBase = values.PUBLIC_APP_BASE_URL!;
+  const issuer = values.OIDC_ISSUER!;
+  const clientId = values.OIDC_CLIENT_ID!;
+  const clientSecret = values.OIDC_CLIENT_SECRET!;
+  const authorizationEndpoint = values.OIDC_AUTHORIZATION_ENDPOINT!;
+  const tokenEndpoint = values.OIDC_TOKEN_ENDPOINT!;
+  const userinfoEndpoint = values.OIDC_USERINFO_ENDPOINT!;
   return {
     issuer,
     clientId,
